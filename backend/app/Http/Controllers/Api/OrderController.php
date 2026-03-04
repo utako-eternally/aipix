@@ -45,7 +45,7 @@ class OrderController extends Controller
             'amount'                    => $product->price,
             'platform_fee'              => $platformFee,
             'creator_revenue'           => $creatorRevenue,
-            'stripe_payment_intent_id'  => 'pi_dummy_' . Str::random(20), // TODO: Stripe実装後に置き換え
+            'amazon_order_reference_id'  => 'pi_dummy_' . Str::random(20), // TODO: Stripe実装後に置き換え
             'status'                    => 'pending',
         ]);
 

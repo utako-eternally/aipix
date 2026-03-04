@@ -16,8 +16,8 @@ return new class extends Migration
             $table->unsignedInteger('amount');
             $table->unsignedInteger('platform_fee');
             $table->unsignedInteger('creator_revenue');
-            $table->string('stripe_payment_intent_id')->unique();
-            $table->string('stripe_charge_id')->nullable();
+            $table->string('amazon_order_reference_id')->unique();
+            $table->string('amazon_charge_id')->nullable();
             $table->enum('status', ['pending', 'completed', 'refunded', 'failed'])->default('pending');
             $table->timestamp('purchased_at')->nullable();
             $table->timestamps();

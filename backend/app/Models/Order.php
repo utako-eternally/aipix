@@ -17,8 +17,8 @@ class Order extends Model
         'amount',
         'platform_fee',
         'creator_revenue',
-        'stripe_payment_intent_id',
-        'stripe_charge_id',
+        'amazon_order_reference_id',
+        'amazon_charge_id',
         'status',
         'purchased_at',
     ];
