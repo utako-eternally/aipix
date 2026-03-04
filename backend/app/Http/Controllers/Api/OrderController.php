@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
-    // 購入（PaymentIntent作成）
+    // 購入（Amazon Pay 決済セッション作成）
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -32,9 +32,6 @@ class OrderController extends Controller
             return response()->json(['message' => 'すでに購入済みです。'], 422);
         }
 
-        // Stripe PaymentIntent 作成（TODO: Stripe SDK導入後に実装）
-        // $paymentIntent = \Stripe\PaymentIntent::create([...]);
-
         $platformFee    = (int) round($product->price * 0.3);
         $creatorRevenue = $product->price - $platformFee;
 
@@ -45,21 +42,21 @@ class OrderController extends Controller
             'amount'                    => $product->price,
             'platform_fee'              => $platformFee,
             'creator_revenue'           => $creatorRevenue,
-            'amazon_order_reference_id'  => 'pi_dummy_' . Str::random(20), // TODO: Stripe実装後に置き換え
+            'amazon_order_reference_id' => 'amzn_dummy_' . Str::random(20), // TODO: Amazon Pay SDK実装後に置き換え
             'status'                    => 'pending',
         ]);
 
         return response()->json([
-            'order'         => $order,
-            // 'client_secret' => $paymentIntent->client_secret, // TODO
+            'order' => $order,
+            // 'checkout_url' => $amazonPaySession->checkoutUrl, // TODO: Amazon Pay実装後に追加
         ], 201);
     }
 
-    // Stripe Webhook
+    // Amazon Pay IPN（即時支払い通知）
     public function webhook(Request $request): JsonResponse
     {
-        // TODO: Stripe Webhook署名検証・イベント処理を実装
-        // payment_intent.succeeded → order.status = completed
+        // TODO: Amazon Pay IPN署名検証・イベント処理を実装
+        // OrderReferenceNotification → order.status = completed
         // + product.purchase_count++
 
         return response()->json(['message' => 'ok']);
