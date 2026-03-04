@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -50,25 +51,30 @@ class ProductController extends Controller
             ->with('user:id,ulid,name,avatar_path')
             ->firstOrFail();
 
-        // 閲覧数インクリメント
         $product->incrementQuietly('view_count');
 
-        $data = $product->toArray();
-
-        // 未購入の場合はプロンプト・原寸画像パスを隠す
         $hasPurchased = false;
-        if ($request->user()) {
-            $hasPurchased = $product->orders()
-                ->where('user_id', $request->user()->id)
+        if ($request->user('sanctum')) {
+            $hasPurchased = (bool) Order::where('user_id', $request->user('sanctum')->id)
+                ->where('product_id', $product->id)
                 ->where('status', 'completed')
                 ->exists();
         }
 
-        if (! $hasPurchased) {
-            unset($data['prompt'], $data['tool_params'], $data['original_path']);
+        $data = $product->only([
+            'id', 'ulid', 'user_id', 'title', 'content_type',
+            'age_rating', 'tags', 'watermark_path', 'price',
+            'tool_name', 'view_count', 'like_count', 'purchase_count', 'created_at',
+        ]);
+
+        if ($hasPurchased) {
+            $data['prompt']      = $product->prompt;
+            $data['tool_params'] = $product->tool_params;
+            $data['original_path'] = $product->original_path;
         }
 
         $data['has_purchased'] = $hasPurchased;
+        $data['user']          = $product->user;
 
         return response()->json($data);
     }
