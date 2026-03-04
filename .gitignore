@@ -1,0 +1,14 @@
+# Laravel
+backend/.env
+backend/vendor/
+backend/storage/logs/
+backend/bootstrap/cache/
+
+# Next.js
+frontend/.env.local
+frontend/.next/
+frontend/node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
