@@ -91,4 +91,23 @@ class OrderController extends Controller
             'expires_at'   => now()->addMinutes(15)->toIso8601String(),
         ]);
     }
+
+    public function devComplete(Request $request, string $ulid): JsonResponse
+    {
+        abort_unless(app()->environment('local'), 404);
+
+        $order = Order::where('ulid', $ulid)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        $order->update([
+            'status'       => 'completed',
+            'purchased_at' => now(),
+        ]);
+
+        $order->product->increment('purchase_count');
+
+        return response()->json(['message' => '注文を完了しました。', 'order' => $order]);
+    }
+
 }

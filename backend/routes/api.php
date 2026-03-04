@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders/webhook',            [OrderController::class, 'webhook']);     // Stripe Webhook
     Route::get('/my/orders',                  [OrderController::class, 'myIndex']);     // 購入履歴
     Route::get('/my/orders/{ulid}/download',  [OrderController::class, 'download']);   // 署名付きURL取得
+    Route::post('/dev/orders/{ulid}/complete', [OrderController::class, 'devComplete']); // 開発用：注文完了（Stripe Webhookの代替）
 
     // いいね
     Route::post('/products/{ulid}/like',   [LikeController::class, 'store']);
