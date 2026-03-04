@@ -30,9 +30,9 @@ class LikeController extends Controller
             'product_id' => $product->id,
         ]);
 
-        $product->incrementQuietly('like_count');
+        $product->increment('like_count');
 
-        return response()->json(['like_count' => $product->like_count + 1], 201);
+        return response()->json(['like_count' => $product->like_count], 201);
     }
 
     // いいね解除
@@ -45,9 +45,9 @@ class LikeController extends Controller
             ->delete();
 
         if ($deleted) {
-            $product->decrementQuietly('like_count');
+            $product->decrement('like_count');
         }
 
-        return response()->json(['like_count' => max(0, $product->like_count - 1)]);
+        return response()->json(['like_count' => max(0, $product->like_count)]);
     }
 }
