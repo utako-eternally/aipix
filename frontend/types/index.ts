@@ -5,6 +5,7 @@ export type User = {
   name: string
   email: string
   avatar_path: string | null
+  cover_path: string | null
   bio: string | null
   is_banned: boolean
   role: 'user' | 'admin'

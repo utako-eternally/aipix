@@ -62,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile',                [ProfileController::class, 'update']);
     Route::post('/profile/avatar',         [ProfileController::class, 'updateAvatar']);
     Route::post('/profile/password',       [ProfileController::class, 'updatePassword']);
+    Route::post('/profile/cover', [ProfileController::class, 'updateCover']);
 
     // フォロー
     Route::post('/users/{ulid}/follow',   [FollowController::class, 'store']);

@@ -180,6 +180,12 @@ export const profileApi = {
 
   updatePassword: (data: { current_password: string; password: string; password_confirmation: string }) =>
     apiFetch<{ message: string }>('/profile/password', { method: 'POST', body: data, auth: true }),
+
+  updateCover: (formData: FormData) =>
+    apiFetch<{ cover_path: string }>('/profile/cover', {
+        method: 'POST',
+        body: formData,
+  }),
 }
 
 import type { Review } from '@/types'
