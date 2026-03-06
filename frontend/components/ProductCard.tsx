@@ -24,6 +24,9 @@ export default function ProductCard({ product }: Props) {
               "https://placehold.co/300x300?text=No+Image";
           }}
         />
+                {product.is_prompt_public === true && (
+          <span style={styles.promptPublic}>プロンプト</span>
+        )}
       </div>
       <div style={styles.body}>
         <p style={styles.title}>{product.title}</p>
@@ -54,9 +57,6 @@ export default function ProductCard({ product }: Props) {
           <span style={styles.meta}>♥ {product.like_count}</span>
         </div>
         {product.age_rating === "r18" && <span style={styles.r18}>R18</span>}
-        {product.is_prompt_public && (
-          <span style={styles.promptPublic}>プロンプト</span>
-        )}
       </div>
     </Link>
   );
@@ -77,6 +77,7 @@ const styles: Record<string, React.CSSProperties> = {
     aspectRatio: "1 / 1",
     overflow: "hidden",
     backgroundColor: "#f0f0f0",
+    position: 'relative', 
   },
   image: {
     width: "100%",

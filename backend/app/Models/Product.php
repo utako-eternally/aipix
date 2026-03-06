@@ -43,6 +43,7 @@ class Product extends Model
             'view_count'  => 'integer',
             'like_count'  => 'integer',
             'purchase_count' => 'integer',
+            'is_prompt_public' => 'boolean',
         ];
     }
 

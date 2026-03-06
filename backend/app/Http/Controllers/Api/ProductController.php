@@ -71,7 +71,7 @@ class ProductController extends Controller
             'width', 'height', 'file_size', 'created_at','is_prompt_public',
         ]);
 
-        if ($hasPurchased || $isFree || $product->is_prompt_public) {
+        if ($hasPurchased || $isFree) {
             $data['prompt']        = $product->prompt;
             $data['tool_params']   = $product->tool_params;
             $data['original_path'] = $product->original_path;

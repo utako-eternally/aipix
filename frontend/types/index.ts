@@ -18,7 +18,7 @@ export type Product = {
   ulid: string
   user_id: number
   title: string
-  content_type: 'illust' | 'photo'
+  content_type: 'illust' | 'photo' | 'video'
   age_rating: 'all' | 'r18'
   tags: string[] | null
   watermark_path: string
@@ -33,7 +33,7 @@ export type Product = {
   created_at: string
   has_purchased?: boolean
   user: Pick<User, 'id' | 'ulid' | 'name' | 'avatar_path'>
-  is_prompt_public: boolean
+  is_prompt_public: boolean | 0 | 1
 }
 
 // ── 注文 ──────────────────────────────────────────
