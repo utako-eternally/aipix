@@ -18,7 +18,7 @@ class ProductController extends Controller
             ->select([
                 'id', 'ulid', 'user_id', 'title', 'content_type',
                 'age_rating', 'tags', 'watermark_path', 'price',
-                'view_count', 'like_count', 'purchase_count', 'created_at',
+                'view_count', 'like_count', 'purchase_count', 'is_prompt_public', 'created_at',
             ]);
 
         // フィルター
@@ -61,19 +61,23 @@ class ProductController extends Controller
                 ->exists();
         }
 
+        // 無料作品は購入なしでも原寸・プロンプト公開
+        $isFree = $product->price === 0;
+
         $data = $product->only([
             'id', 'ulid', 'user_id', 'title', 'content_type',
             'age_rating', 'tags', 'watermark_path', 'price',
-            'tool_name', 'view_count', 'like_count', 'purchase_count', 'created_at',
+            'tool_name', 'view_count', 'like_count', 'purchase_count',
+            'width', 'height', 'file_size', 'created_at','is_prompt_public',
         ]);
 
-        if ($hasPurchased) {
-            $data['prompt']      = $product->prompt;
-            $data['tool_params'] = $product->tool_params;
+        if ($hasPurchased || $isFree || $product->is_prompt_public) {
+            $data['prompt']        = $product->prompt;
+            $data['tool_params']   = $product->tool_params;
             $data['original_path'] = $product->original_path;
         }
 
-        $data['has_purchased'] = $hasPurchased;
+        $data['has_purchased'] = $hasPurchased || $isFree;
         $data['user']          = $product->user;
 
         return response()->json($data);
@@ -83,25 +87,43 @@ class ProductController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'title'          => ['required', 'string', 'max:100'],
-            'content_type'   => ['required', 'in:illust,photo'],
-            'age_rating'     => ['required', 'in:all,r18'],
-            'tags'           => ['nullable', 'array', 'max:10'],
-            'tags.*'         => ['string', 'max:50'],
-            'price'          => ['required', 'integer', 'min:100', 'max:99999'],
-            'prompt'         => ['nullable', 'string'],
-            'tool_name'      => ['nullable', 'string', 'max:100'],
-            'tool_params'    => ['nullable', 'array'],
-            // 画像アップロードは別途 S3 署名付きURL方式で実装予定
-            'watermark_path' => ['required', 'string', 'max:500'],
-            'original_path'  => ['required', 'string', 'max:500'],
+            'title'        => ['required', 'string', 'max:100'],
+            'content_type' => ['required', 'in:illust,photo,video'],
+            'age_rating'   => ['required', 'in:all,r18'],
+            'tags'         => ['nullable', 'array', 'max:10'],
+            'tags.*'       => ['string', 'max:50'],
+            'price'        => ['required', 'integer', 'min:0', 'max:1000'],
+            'prompt'       => ['nullable', 'string'],
+            'tool_name'    => ['nullable', 'string', 'max:100'],
+            'tool_params'  => ['nullable', 'array'],
+            'image'        => ['required', 'image', 'mimes:jpeg,png,webp', 'max:10240'],
+            'is_prompt_public' => ['boolean'],
         ]);
 
+        $ulid = Str::ulid();
+
+        // 画像保存・ウォーターマーク合成
+        $imageService = new \App\Services\ImageService();
+        $paths = $imageService->store($request->file('image'), $ulid);
+
         $product = Product::create([
-            'ulid'           => Str::ulid(),
+            'ulid'           => $ulid,
             'user_id'        => $request->user()->id,
             'status'         => 'pending',
-            ...$validated,
+            'title'          => $validated['title'],
+            'content_type'   => $validated['content_type'],
+            'age_rating'     => $validated['age_rating'],
+            'tags'           => $validated['tags'] ?? null,
+            'price'          => $validated['price'],
+            'prompt'         => $validated['prompt'] ?? null,
+            'tool_name'      => $validated['tool_name'] ?? null,
+            'tool_params'    => $validated['tool_params'] ?? null,
+            'watermark_path' => $paths['watermark_path'],
+            'original_path'  => $paths['original_path'],
+            'width'          => $paths['width'],
+            'height'         => $paths['height'],
+            'file_size'      => $paths['file_size'],
+            'is_prompt_public' => $validated['is_prompt_public'] ?? false,
         ]);
 
         return response()->json($product, 201);

@@ -7,6 +7,10 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\RankingController;
 use App\Http\Controllers\Api\AuditController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\FollowController;
+use App\Http\Controllers\Api\ReviewController;
 
 // ── 認証不要 ──────────────────────────────────────
 Route::post('/auth/register', [AuthController::class, 'register']);
@@ -18,6 +22,17 @@ Route::get('/products/{ulid}', [ProductController::class, 'show']);
 
 // ランキング
 Route::get('/rankings', [RankingController::class, 'index']);
+
+// ユーザーページ
+Route::get('/users/{ulid}',          [UserController::class, 'show']);
+Route::get('/users/{ulid}/products', [UserController::class, 'products']);
+
+// レビュー
+Route::get('/products/{ulid}/reviews', [ReviewController::class, 'index']);
+
+// フォロー関係
+Route::get('/users/{ulid}/following', [UserController::class, 'following']);
+Route::get('/users/{ulid}/followers', [UserController::class, 'followers']);
 
 // ── 認証必要 ──────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
@@ -41,6 +56,19 @@ Route::middleware('auth:sanctum')->group(function () {
     // いいね
     Route::post('/products/{ulid}/like',   [LikeController::class, 'store']);
     Route::delete('/products/{ulid}/like', [LikeController::class, 'destroy']);
+
+    // プロフィール
+    Route::get('/profile',                 [ProfileController::class, 'show']);
+    Route::post('/profile',                [ProfileController::class, 'update']);
+    Route::post('/profile/avatar',         [ProfileController::class, 'updateAvatar']);
+    Route::post('/profile/password',       [ProfileController::class, 'updatePassword']);
+
+    // フォロー
+    Route::post('/users/{ulid}/follow',   [FollowController::class, 'store']);
+    Route::delete('/users/{ulid}/follow', [FollowController::class, 'destroy']);
+
+    // レビュー
+    Route::post('/products/{ulid}/reviews', [ReviewController::class, 'store']);
 
     // 管理者専用
     Route::middleware('role:admin')->prefix('admin')->group(function () {

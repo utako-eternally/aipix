@@ -32,24 +32,26 @@ class OrderController extends Controller
             return response()->json(['message' => 'すでに購入済みです。'], 422);
         }
 
-        $platformFee    = (int) round($product->price * 0.3);
-        $creatorRevenue = $product->price - $platformFee;
+        $isAdmin = $request->user()->role === 'admin';
+
+        $platformFee    = $isAdmin ? 0 : (int) round($product->price * 0.3);
+        $creatorRevenue = $isAdmin ? 0 : $product->price - $platformFee;
 
         $order = Order::create([
             'ulid'                      => Str::ulid(),
             'user_id'                   => $request->user()->id,
             'product_id'                => $product->id,
-            'amount'                    => $product->price,
+            'amount'                    => $isAdmin ? 0 : $product->price,
             'platform_fee'              => $platformFee,
             'creator_revenue'           => $creatorRevenue,
-            'amazon_order_reference_id' => 'amzn_dummy_' . Str::random(20), // TODO: Amazon Pay SDK実装後に置き換え
-            'status'                    => 'pending',
+            'amazon_order_reference_id' => 'amzn_dummy_' . Str::random(20),
+            'status'                    => $isAdmin ? 'completed' : 'pending',
+            'is_admin_purchase'         => $isAdmin,
+            'purchased_at'              => $isAdmin ? now() : null,
         ]);
 
-        return response()->json([
-            'order' => $order,
-            // 'checkout_url' => $amazonPaySession->checkoutUrl, // TODO: Amazon Pay実装後に追加
-        ], 201);
+        // 管理者の場合はそのまま完了処理（purchase_countは集計から除外するためincrementしない）
+        return response()->json(['order' => $order], 201);
     }
 
     // Amazon Pay IPN（即時支払い通知）

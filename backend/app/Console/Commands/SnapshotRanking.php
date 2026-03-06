@@ -14,7 +14,6 @@ class SnapshotRanking extends Command
 
     protected $description = 'Take a ranking snapshot for the given period';
 
-    // 集計対象の軸と年齢レーティングの組み合わせ
     private array $axes = ['sales', 'views', 'likes'];
     private array $ageRatings = ['all', 'r18'];
 
@@ -41,34 +40,53 @@ class SnapshotRanking extends Command
 
     private function snapshot(string $period, string $axis, string $ageRating, \Carbon\Carbon $snapshotted_at): void
     {
-        // 集計カラムの決定
-        $scoreColumn = match ($axis) {
-            'sales'  => 'purchase_count',
-            'views'  => 'view_count',
-            'likes'  => 'like_count',
-        };
+        if ($axis === 'sales') {
+            // 管理者購入を除外した実購入数で集計
+            $query = Product::where('products.status', 'approved')
+                ->leftJoin('orders', function ($join) {
+                    $join->on('orders.product_id', '=', 'products.id')
+                        ->where('orders.status', 'completed')
+                        ->where('orders.is_admin_purchase', false);
+                })
+                ->groupBy('products.id')
+                ->selectRaw('products.id, COUNT(orders.id) as score')
+                ->orderByDesc('score')
+                ->limit(50);
 
-        // 年齢レーティングの絞り込み
-        $query = Product::where('status', 'approved')
-            ->orderByDesc($scoreColumn)
-            ->limit(50);
+            if ($ageRating === 'r18') {
+                $query->where('products.age_rating', 'r18');
+            }
 
-        if ($ageRating === 'r18') {
-            $query->where('age_rating', 'r18');
+            $products = $query->get();
+        } else {
+            $scoreColumn = match ($axis) {
+                'views' => 'view_count',
+                'likes' => 'like_count',
+            };
+
+            $query = Product::where('status', 'approved')
+                ->orderByDesc($scoreColumn)
+                ->limit(50);
+
+            if ($ageRating === 'r18') {
+                $query->where('age_rating', 'r18');
+            }
+
+            $products = $query->get(['id', $scoreColumn]);
+            $products = $products->map(function ($p) use ($scoreColumn) {
+                $p->score = $p->{$scoreColumn};
+                return $p;
+            });
         }
-        // 'all' の場合は全年齢（all + r18）を対象にする
 
-        $products = $query->get(['id', $scoreColumn]);
-
-        // 一括INSERT
-        $records = $products->map(function ($product, $index) use ($period, $axis, $ageRating, $scoreColumn, $snapshotted_at) {
+        $records = $products->map(function ($product, $index) use ($period, $axis, $ageRating, $snapshotted_at) {
             return [
                 'period'         => $period,
                 'axis'           => $axis,
                 'age_rating'     => $ageRating,
                 'rank'           => $index + 1,
                 'product_id'     => $product->id,
-                'score'          => $product->{$scoreColumn},
+                'score'          => $product->score,
                 'snapshotted_at' => $snapshotted_at,
             ];
         })->toArray();

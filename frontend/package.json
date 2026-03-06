@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "dev:all": "concurrently \"php artisan serve --ansi\" \"next dev --ansi\" --prefix-colors \"blue,green\""
   },
   "dependencies": {
     "next": "16.1.6",
