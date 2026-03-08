@@ -46,27 +46,20 @@ class ProfileController extends Controller
             }
         }
 
-        // 保存先ディレクトリ
         $dir = storage_path('app/public/avatars');
         if (! is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
 
-        // WebP に変換して保存
         $file     = $request->file('avatar');
         $filename = $user->ulid . '.webp';
         $absPath  = $dir . '/' . $filename;
 
-        $src = match ($file->getMimeType()) {
-            'image/jpeg' => imagecreatefromjpeg($file->getRealPath()),
-            'image/png'  => imagecreatefrompng($file->getRealPath()),
-            'image/webp' => imagecreatefromwebp($file->getRealPath()),
-            default      => throw new \InvalidArgumentException('対応していない画像形式です。'),
-        };
+        $src = $this->loadGdImage($file->getRealPath(), $file->getMimeType());
 
         // 正方形にクロップ
-        $w = imagesx($src);
-        $h = imagesy($src);
+        $w    = imagesx($src);
+        $h    = imagesy($src);
         $size = min($w, $h);
         $x    = (int)(($w - $size) / 2);
         $y    = (int)(($h - $size) / 2);
@@ -86,9 +79,52 @@ class ProfileController extends Controller
         $avatarPath = 'avatars/' . $filename;
         $user->update(['avatar_path' => $avatarPath]);
 
-        return response()->json([
-            'avatar_path' => $avatarPath,
+        return response()->json(['avatar_path' => $avatarPath]);
+    }
+
+    // カバー画像アップロード
+    public function updateCover(Request $request): JsonResponse
+    {
+        $request->validate([
+            'cover' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:5120'], // 5MB
         ]);
+
+        $user = $request->user();
+
+        // 既存カバーを削除
+        if ($user->cover_path) {
+            $abs = storage_path('app/public/' . $user->cover_path);
+            if (file_exists($abs)) {
+                unlink($abs);
+            }
+        }
+
+        $dir = storage_path('app/public/covers');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $file     = $request->file('cover');
+        $filename = $user->ulid . '.webp';
+        $absPath  = $dir . '/' . $filename;
+
+        // フロント側でトリミング済みの画像を受け取り 1200x400 にリサイズ
+        $src = $this->loadGdImage($file->getRealPath(), $file->getMimeType());
+
+        $w = imagesx($src);
+        $h = imagesy($src);
+
+        $resized = imagecreatetruecolor(1200, 400);
+        imagecopyresampled($resized, $src, 0, 0, 0, 0, 1200, 400, $w, $h);
+        imagedestroy($src);
+
+        imagewebp($resized, $absPath, 85);
+        imagedestroy($resized);
+
+        $coverPath = 'covers/' . $filename;
+        $user->update(['cover_path' => $coverPath]);
+
+        return response()->json(['cover_path' => $coverPath]);
     }
 
     // パスワード変更
@@ -110,5 +146,30 @@ class ProfileController extends Controller
         ]);
 
         return response()->json(['message' => 'パスワードを変更しました。']);
+    }
+
+    // ── GD 画像読み込み ───────────────────────────
+    private function loadGdImage(string $path, string $mime): \GdImage
+    {
+        $src = match ($mime) {
+            'image/jpeg' => imagecreatefromjpeg($path),
+            'image/png'  => imagecreatefrompng($path),
+            'image/webp' => imagecreatefromwebp($path),
+            default      => throw new \InvalidArgumentException('対応していない画像形式です。'),
+        };
+
+        // PNG の透明度を白背景に合成
+        if ($mime === 'image/png') {
+            $w     = imagesx($src);
+            $h     = imagesy($src);
+            $bg    = imagecreatetruecolor($w, $h);
+            $white = imagecolorallocate($bg, 255, 255, 255);
+            imagefill($bg, 0, 0, $white);
+            imagecopy($bg, $src, 0, 0, 0, 0, $w, $h);
+            imagedestroy($src);
+            $src = $bg;
+        }
+
+        return $src;
     }
 }

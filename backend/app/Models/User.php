@@ -19,6 +19,7 @@ class User extends Authenticatable
         'email',
         'password',
         'avatar_path',
+        'cover_path',
         'bio',
         'is_banned',
         'role',
