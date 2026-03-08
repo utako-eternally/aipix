@@ -146,6 +146,22 @@ class ProductController extends Controller
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
 
+        // ストレージファイル削除
+        foreach ([$product->original_path, $product->watermark_path] as $path) {
+            if ($path) {
+                $abs = storage_path('app/public/' . $path);
+                if (file_exists($abs)) {
+                    unlink($abs);
+                }
+            }
+        }
+
+        // ディレクトリが空なら削除
+        $dir = storage_path('app/public/artworks/' . $ulid);
+        if (is_dir($dir) && count(scandir($dir)) === 2) {
+            rmdir($dir);
+        }
+
         $product->delete();
 
         return response()->json(['message' => '削除しました。']);

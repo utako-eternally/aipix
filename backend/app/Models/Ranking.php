@@ -10,27 +10,27 @@ class Ranking extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'type',
         'period',
-        'axis',
         'age_rating',
         'rank',
         'product_id',
+        'user_id',
         'score',
         'snapshotted_at',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'rank'           => 'integer',
-            'score'          => 'integer',
-            'snapshotted_at' => 'datetime',
-        ];
-    }
+    protected $casts = [
+        'snapshotted_at' => 'datetime',
+    ];
 
-    // ── リレーション ──────────────────────────────
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }
