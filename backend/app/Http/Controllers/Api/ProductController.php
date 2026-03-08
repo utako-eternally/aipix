@@ -19,9 +19,17 @@ class ProductController extends Controller
                 'id', 'ulid', 'user_id', 'title', 'content_type',
                 'age_rating', 'tags', 'watermark_path', 'price',
                 'view_count', 'like_count', 'purchase_count', 'is_prompt_public', 'created_at',
+                'tool_name',
             ]);
 
         // フィルター
+        if ($request->filled('q')) {
+            $q = $request->q;
+            $query->where(function ($sub) use ($q) {
+                $sub->where('title', 'like', "%{$q}%")
+                    ->orWhereJsonContains('tags', $q);
+            });
+        }
         if ($request->filled('age_rating')) {
             $query->where('age_rating', $request->age_rating);
         }
@@ -68,7 +76,7 @@ class ProductController extends Controller
             'id', 'ulid', 'user_id', 'title', 'content_type',
             'age_rating', 'tags', 'watermark_path', 'price',
             'tool_name', 'view_count', 'like_count', 'purchase_count',
-            'width', 'height', 'file_size', 'created_at','is_prompt_public',
+            'width', 'height', 'file_size', 'created_at', 'is_prompt_public',
         ]);
 
         if ($hasPurchased || $isFree) {
@@ -87,16 +95,16 @@ class ProductController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'title'        => ['required', 'string', 'max:100'],
-            'content_type' => ['required', 'in:illust,photo,video'],
-            'age_rating'   => ['required', 'in:all,r18'],
-            'tags'         => ['nullable', 'array', 'max:10'],
-            'tags.*'       => ['string', 'max:50'],
-            'price'        => ['required', 'integer', 'min:0', 'max:1000'],
-            'prompt'       => ['nullable', 'string'],
-            'tool_name'    => ['nullable', 'string', 'max:100'],
-            'tool_params'  => ['nullable', 'array'],
-            'image'        => ['required', 'image', 'mimes:jpeg,png,webp', 'max:10240'],
+            'title'            => ['required', 'string', 'max:100'],
+            'content_type'     => ['required', 'in:illust,photo,video'],
+            'age_rating'       => ['required', 'in:all,r18'],
+            'tags'             => ['nullable', 'array', 'max:10'],
+            'tags.*'           => ['string', 'max:50'],
+            'price'            => ['required', 'integer', 'min:0', 'max:1000'],
+            'prompt'           => ['nullable', 'string'],
+            'tool_name'        => ['nullable', 'string', 'max:100'],
+            'tool_params'      => ['nullable', 'array'],
+            'image'            => ['required', 'image', 'mimes:jpeg,png,webp', 'max:10240'],
             'is_prompt_public' => ['boolean'],
         ]);
 
@@ -107,22 +115,22 @@ class ProductController extends Controller
         $paths = $imageService->store($request->file('image'), $ulid);
 
         $product = Product::create([
-            'ulid'           => $ulid,
-            'user_id'        => $request->user()->id,
-            'status'         => 'pending',
-            'title'          => $validated['title'],
-            'content_type'   => $validated['content_type'],
-            'age_rating'     => $validated['age_rating'],
-            'tags'           => $validated['tags'] ?? null,
-            'price'          => $validated['price'],
-            'prompt'         => $validated['prompt'] ?? null,
-            'tool_name'      => $validated['tool_name'] ?? null,
-            'tool_params'    => $validated['tool_params'] ?? null,
-            'watermark_path' => $paths['watermark_path'],
-            'original_path'  => $paths['original_path'],
-            'width'          => $paths['width'],
-            'height'         => $paths['height'],
-            'file_size'      => $paths['file_size'],
+            'ulid'             => $ulid,
+            'user_id'          => $request->user()->id,
+            'status'           => 'pending',
+            'title'            => $validated['title'],
+            'content_type'     => $validated['content_type'],
+            'age_rating'       => $validated['age_rating'],
+            'tags'             => $validated['tags'] ?? null,
+            'price'            => $validated['price'],
+            'prompt'           => $validated['prompt'] ?? null,
+            'tool_name'        => $validated['tool_name'] ?? null,
+            'tool_params'      => $validated['tool_params'] ?? null,
+            'watermark_path'   => $paths['watermark_path'],
+            'original_path'    => $paths['original_path'],
+            'width'            => $paths['width'],
+            'height'           => $paths['height'],
+            'file_size'        => $paths['file_size'],
             'is_prompt_public' => $validated['is_prompt_public'] ?? false,
         ]);
 

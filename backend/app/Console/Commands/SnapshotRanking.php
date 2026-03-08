@@ -51,7 +51,7 @@ class SnapshotRanking extends Command
             ->groupBy('products.id')
             ->selectRaw('
                 products.id,
-                (COUNT(orders.id) * 3 + products.like_count * 2 + products.view_count) as score
+                (COUNT(orders.id) * 3 + MAX(products.like_count) * 2 + MAX(products.view_count)) as score
             ')
             ->orderByDesc('score')
             ->limit(50);

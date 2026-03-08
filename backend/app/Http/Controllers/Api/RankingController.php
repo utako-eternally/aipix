@@ -33,7 +33,10 @@ class RankingController extends Controller
             ->where('age_rating', $ageRating)
             ->where('snapshotted_at', $latest)
             ->orderBy('rank')
-            ->with('product:id,ulid,title,watermark_path,price,user_id,content_type,age_rating')
+            ->with([
+    'product:id,ulid,title,watermark_path,price,user_id,content_type,age_rating,tool_name,is_prompt_public',
+    'product.user:id,ulid,name,avatar_path',
+])
             ->get();
 
         return response()->json([

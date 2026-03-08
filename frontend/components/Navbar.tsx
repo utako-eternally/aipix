@@ -4,15 +4,19 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
+import { useR18 } from '@/context/R18Context'
 import { storageUrl } from '@/lib/api'
 
 const ADMIN_MODE_KEY = 'aipix_admin_mode'
 
 export default function Navbar() {
   const { user, logout, loading } = useAuth()
+  const { isR18Mode, isVerified, enableR18, disableR18, verify } = useR18()
   const router = useRouter()
+
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [isAdminMode, setIsAdminMode] = useState(false)
+  const [showAgeModal, setShowAgeModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // localStorage から管理者モードを復元
@@ -52,6 +56,24 @@ export default function Navbar() {
     router.push(path)
   }
 
+  // R18トグルクリック
+  const handleR18Toggle = () => {
+    if (isR18Mode) {
+      disableR18()
+    } else if (isVerified) {
+      enableR18()
+    } else {
+      setShowAgeModal(true)
+    }
+  }
+
+  // 年齢確認OK
+  const handleAgeConfirm = () => {
+    verify()
+    enableR18()
+    setShowAgeModal(false)
+  }
+
   if (loading) return <nav style={styles.nav}><span style={styles.logo}>AIPIX</span></nav>
 
   const isAdmin = user?.role === 'admin'
@@ -62,19 +84,27 @@ export default function Navbar() {
         <Link href="/" style={styles.logo}>AIPIX</Link>
 
         <div style={styles.links}>
-          <Link href="/" style={styles.link}>ギャラリー</Link>
+          <Link href="/gallery" style={styles.link}>ギャラリー</Link>
           <Link href="/rankings" style={styles.link}>ランキング</Link>
+
+          {/* R18トグル */}
+          <div style={styles.r18Toggle} onClick={handleR18Toggle}>
+            <div style={{ ...styles.r18Track, ...(isR18Mode ? styles.r18TrackOn : {}) }}>
+              <div style={{ ...styles.r18Thumb, ...(isR18Mode ? styles.r18ThumbOn : {}) }} />
+            </div>
+            <span style={{ ...styles.r18Label, ...(isR18Mode ? styles.r18LabelOn : {}) }}>
+              R18
+            </span>
+          </div>
 
           {user ? (
             <>
-              {/* 管理者モード時は管理画面リンクを表示 */}
               {isAdmin && isAdminMode && (
                 <Link href="/admin" style={styles.adminLink}>管理画面</Link>
               )}
 
               <Link href="/products/new" style={styles.postButton}>+ 投稿する</Link>
 
-              {/* アバター+名前 ドロップダウン */}
               <div style={styles.userMenu} ref={dropdownRef}>
                 <div
                   style={styles.userButton}
@@ -84,9 +114,7 @@ export default function Navbar() {
                     src={user.avatar_path ? storageUrl(user.avatar_path) : 'https://placehold.co/32x32?text=U'}
                     alt={user.name}
                     style={styles.avatar}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://placehold.co/32x32?text=U'
-                    }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/32x32?text=U' }}
                   />
                   <span style={styles.userName}>{user.name}</span>
                   <span style={styles.caret}>{dropdownOpen ? '▲' : '▼'}</span>
@@ -94,34 +122,20 @@ export default function Navbar() {
 
                 {dropdownOpen && (
                   <div style={styles.dropdown}>
-                    <button style={styles.dropdownItem} onClick={() => handleDropdownLink(`/users/${user.ulid}`)}>
-                      マイページ
-                    </button>
-                    <button style={styles.dropdownItem} onClick={() => handleDropdownLink('/my/products')}>
-                      マイ投稿
-                    </button>
-                    <button style={styles.dropdownItem} onClick={() => handleDropdownLink('/my/orders')}>
-                      購入履歴
-                    </button>
-                    <button style={styles.dropdownItem} onClick={() => handleDropdownLink('/settings')}>
-                      設定
-                    </button>
+                    <button style={styles.dropdownItem} onClick={() => handleDropdownLink(`/users/${user.ulid}`)}>マイページ</button>
+                    <button style={styles.dropdownItem} onClick={() => handleDropdownLink('/my/products')}>マイ投稿</button>
+                    <button style={styles.dropdownItem} onClick={() => handleDropdownLink('/my/orders')}>購入履歴</button>
+                    <button style={styles.dropdownItem} onClick={() => handleDropdownLink('/my/settings')}>設定</button>
 
                     {isAdmin && (
                       <>
                         <hr style={styles.divider} />
                         {isAdminMode ? (
-                          <button
-                            style={{ ...styles.dropdownItem, color: '#718096' }}
-                            onClick={() => switchAdminMode(false)}
-                          >
+                          <button style={{ ...styles.dropdownItem, color: '#718096' }} onClick={() => switchAdminMode(false)}>
                             ユーザーとして閲覧
                           </button>
                         ) : (
-                          <button
-                            style={{ ...styles.dropdownItem, color: '#e53e3e' }}
-                            onClick={() => switchAdminMode(true)}
-                          >
+                          <button style={{ ...styles.dropdownItem, color: '#e53e3e' }} onClick={() => switchAdminMode(true)}>
                             管理者モードに切り替え
                           </button>
                         )}
@@ -129,9 +143,7 @@ export default function Navbar() {
                     )}
 
                     <hr style={styles.divider} />
-                    <button style={{ ...styles.dropdownItem, color: '#e53e3e' }} onClick={handleLogout}>
-                      ログアウト
-                    </button>
+                    <button style={{ ...styles.dropdownItem, color: '#e53e3e' }} onClick={handleLogout}>ログアウト</button>
                   </div>
                 )}
               </div>
@@ -147,8 +159,32 @@ export default function Navbar() {
 
       {/* 管理者モードバナー */}
       {isAdmin && isAdminMode && (
-        <div style={styles.adminBanner}>
-          🛡 管理者モードで閲覧中
+        <div style={styles.adminBanner}>🛡 管理者モードで閲覧中</div>
+      )}
+
+      {/* R18モードバナー */}
+      {isR18Mode && (
+        <div style={styles.r18Banner}>🔞 R18モードで閲覧中</div>
+      )}
+
+      {/* 年齢確認モーダル */}
+      {showAgeModal && (
+        <div style={styles.modal}>
+          <div style={styles.modalInner}>
+            <h2 style={styles.modalTitle}>年齢確認</h2>
+            <p style={styles.modalText}>
+              このコンテンツには成人向けの作品が含まれます。<br />
+              あなたは18歳以上ですか？
+            </p>
+            <div style={styles.modalButtons}>
+              <button onClick={() => setShowAgeModal(false)} style={styles.cancelButton}>
+                いいえ（戻る）
+              </button>
+              <button onClick={handleAgeConfirm} style={styles.confirmButton}>
+                はい（18歳以上です）
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>
@@ -167,108 +203,34 @@ const styles: Record<string, React.CSSProperties> = {
     top: 0,
     zIndex: 100,
   },
-  logo: {
-    fontWeight: 'bold',
-    fontSize: '20px',
-    textDecoration: 'none',
-    color: '#333',
-  },
-  links: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-  },
-  link: {
-    textDecoration: 'none',
-    color: '#333',
-    fontSize: '14px',
-  },
-  adminLink: {
-    textDecoration: 'none',
-    color: '#fff',
-    fontSize: '14px',
-    padding: '6px 14px',
-    backgroundColor: '#e53e3e',
-    borderRadius: '4px',
-  },
-  postButton: {
-    padding: '6px 14px',
-    backgroundColor: '#333',
-    color: '#fff',
-    borderRadius: '4px',
-    textDecoration: 'none',
-    fontSize: '14px',
-  },
-  loginButton: {
-    padding: '6px 14px',
-    border: '1px solid #333',
-    borderRadius: '4px',
-    textDecoration: 'none',
-    color: '#333',
-    fontSize: '14px',
-  },
-  userMenu: {
-    position: 'relative',
-  },
-  userButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    cursor: 'pointer',
-    padding: '4px 8px',
-    borderRadius: '4px',
-    border: '1px solid #ddd',
-    backgroundColor: '#fff',
-  },
-  avatar: {
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    objectFit: 'cover',
-    backgroundColor: '#f0f0f0',
-  },
-  userName: {
-    fontSize: '14px',
-    color: '#333',
-  },
-  caret: {
-    fontSize: '10px',
-    color: '#999',
-  },
-  dropdown: {
-    position: 'absolute',
-    top: 'calc(100% + 8px)',
-    right: 0,
-    backgroundColor: '#fff',
-    border: '1px solid #ddd',
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    minWidth: '180px',
-    zIndex: 200,
-    overflow: 'hidden',
-  },
-  dropdownItem: {
-    display: 'block',
-    width: '100%',
-    padding: '10px 16px',
-    textAlign: 'left',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '14px',
-    color: '#333',
-  },
-  divider: {
-    margin: '4px 0',
-    border: 'none',
-    borderTop: '1px solid #eee',
-  },
-  adminBanner: {
-    backgroundColor: '#e53e3e',
-    color: '#fff',
-    textAlign: 'center',
-    padding: '6px',
-    fontSize: '13px',
-    fontWeight: 'bold',
-  },
+  logo: { fontWeight: 'bold', fontSize: '20px', textDecoration: 'none', color: '#333' },
+  links: { display: 'flex', alignItems: 'center', gap: '16px' },
+  link: { textDecoration: 'none', color: '#333', fontSize: '14px' },
+  adminLink: { textDecoration: 'none', color: '#fff', fontSize: '14px', padding: '6px 14px', backgroundColor: '#e53e3e', borderRadius: '4px' },
+  postButton: { padding: '6px 14px', backgroundColor: '#333', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontSize: '14px' },
+  loginButton: { padding: '6px 14px', border: '1px solid #333', borderRadius: '4px', textDecoration: 'none', color: '#333', fontSize: '14px' },
+  userMenu: { position: 'relative' },
+  userButton: { display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px', border: '1px solid #ddd', backgroundColor: '#fff' },
+  avatar: { width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', backgroundColor: '#f0f0f0' },
+  userName: { fontSize: '14px', color: '#333' },
+  caret: { fontSize: '10px', color: '#999' },
+  dropdown: { position: 'absolute', top: 'calc(100% + 8px)', right: 0, backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: '180px', zIndex: 200, overflow: 'hidden' },
+  dropdownItem: { display: 'block', width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#333' },
+  divider: { margin: '4px 0', border: 'none', borderTop: '1px solid #eee' },
+  adminBanner: { backgroundColor: '#e53e3e', color: '#fff', textAlign: 'center', padding: '6px', fontSize: '13px', fontWeight: 'bold' },
+  r18Banner: { backgroundColor: '#744210', color: '#fff', textAlign: 'center', padding: '6px', fontSize: '13px', fontWeight: 'bold' },
+  r18Toggle: { display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' },
+  r18Track: { width: '36px', height: '20px', borderRadius: '10px', backgroundColor: '#ccc', position: 'relative', transition: 'background 0.2s', flexShrink: 0 },
+  r18TrackOn: { backgroundColor: '#e53e3e' },
+  r18Thumb: { position: 'absolute', top: '2px', left: '2px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.2s' },
+  r18ThumbOn: { left: '18px' },
+  r18Label: { fontSize: '13px', color: '#999', fontWeight: 'bold' },
+  r18LabelOn: { color: '#e53e3e' },
+  modal: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
+  modalInner: { backgroundColor: '#fff', borderRadius: '12px', padding: '32px', maxWidth: '400px', width: '90vw', display: 'flex', flexDirection: 'column', gap: '16px' },
+  modalTitle: { fontSize: '20px', fontWeight: 'bold', margin: 0, textAlign: 'center' },
+  modalText: { fontSize: '14px', color: '#555', textAlign: 'center', lineHeight: '1.7', margin: 0 },
+  modalButtons: { display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '8px' },
+  cancelButton: { padding: '10px 20px', backgroundColor: '#fff', color: '#333', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '14px' },
+  confirmButton: { padding: '10px 20px', backgroundColor: '#e53e3e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px' },
 }

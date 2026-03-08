@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/context/AuthContext'
+import { R18Provider } from '@/context/R18Context'
 import Navbar from '@/components/Navbar'
 
 export const metadata: Metadata = {
@@ -17,8 +18,10 @@ export default function RootLayout({
     <html lang="ja">
       <body>
         <AuthProvider>
-          <Navbar />
-          {children}
+          <R18Provider>
+            <Navbar />
+            {children}
+          </R18Provider>
         </AuthProvider>
       </body>
     </html>

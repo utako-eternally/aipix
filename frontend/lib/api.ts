@@ -123,6 +123,9 @@ export const orderApi = {
 
   devComplete: (ulid: string) =>
     apiFetch<{ message: string; order: Order }>(`/dev/orders/${ulid}/complete`, { method: 'POST', auth: true }),
+
+  myIndex: (page = 1) =>
+    apiFetch<Paginated<Order>>(`/my/orders?page=${page}`, { auth: true }),
 }
 
 // ── いいね ────────────────────────────────────────
@@ -135,12 +138,17 @@ export const likeApi = {
 }
 
 // ── ランキング ────────────────────────────────────
-import type { Ranking } from '@/types'
+import type { Ranking, RankingUser } from '@/types'
 
 export const rankingApi = {
-  index: (params: { period: string; axis: string; age_rating?: string }) => {
+  index: (params: { period: string; age_rating?: string }) => {
     const query = '?' + new URLSearchParams(params).toString()
     return apiFetch<{ data: Ranking[]; snapshotted_at: string }>(`/rankings${query}`)
+  },
+
+  users: (params: { period: string }) => {
+    const query = '?' + new URLSearchParams(params).toString()
+    return apiFetch<{ data: RankingUser[]; snapshotted_at: string }>(`/rankings/users${query}`)
   },
 }
 

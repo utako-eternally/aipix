@@ -57,14 +57,26 @@ export type Order = {
 // ── ランキング ────────────────────────────────────
 export type Ranking = {
   id: number
+  type: 'product'
   period: 'daily' | 'weekly' | 'monthly'
-  axis: 'sales' | 'views' | 'likes'
   age_rating: 'all' | 'r18'
   rank: number
   product_id: number
   score: number
   snapshotted_at: string
   product: Pick<Product, 'id' | 'ulid' | 'title' | 'watermark_path' | 'price' | 'user_id' | 'content_type' | 'age_rating'>
+}
+
+export type RankingUser = {
+  id: number
+  type: 'user'
+  period: 'daily' | 'weekly' | 'monthly'
+  age_rating: 'all'
+  rank: number
+  user_id: number
+  score: number
+  snapshotted_at: string
+  user: Pick<User, 'id' | 'ulid' | 'name' | 'avatar_path' | 'bio'> & { rank: number | null }
 }
 
 // ── ページネーション ──────────────────────────────
@@ -95,3 +107,18 @@ export type Review = {
   created_at: string
   user: Pick<User, 'id' | 'ulid' | 'name' | 'avatar_path'>
 }
+
+// ── ユーザープロフィール ─────────────────────────────
+export type UserProfile = {
+  id: number;
+  ulid: string;
+  name: string;
+  bio: string | null;
+  avatar_path: string | null;
+  cover_path: string | null;
+  followers_count: number;
+  following_count: number;
+  products_count: number;
+  is_following: boolean;
+  created_at: string;
+};

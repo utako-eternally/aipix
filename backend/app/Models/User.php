@@ -23,6 +23,7 @@ class User extends Authenticatable
         'bio',
         'is_banned',
         'role',
+        'rank',
     ];
 
     protected $hidden = [

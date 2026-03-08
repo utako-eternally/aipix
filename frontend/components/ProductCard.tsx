@@ -7,10 +7,13 @@ import { storageUrl } from "@/lib/api";
 
 type Props = {
   product: Product;
+  rank?: number;
 };
 
-export default function ProductCard({ product }: Props) {
+export default function ProductCard({ product, rank }: Props) {
   const router = useRouter();
+
+  const showTopOverlay = rank !== undefined || !!product.tool_name;
 
   return (
     <Link href={`/products/${product.ulid}`} style={styles.card}>
@@ -24,7 +27,23 @@ export default function ProductCard({ product }: Props) {
               "https://placehold.co/300x300?text=No+Image";
           }}
         />
-                {product.is_prompt_public === true && (
+        {/* 上部グラデーション */}
+        {showTopOverlay && <div style={styles.topGradient} />}
+
+        {/* 順位バッジ（左上） */}
+        {rank !== undefined && (
+          <span style={styles.rankBadge}>#{rank}</span>
+        )}
+
+        {/* ツール名（順位がある場合は下、ない場合は上） */}
+        {product.tool_name && (
+          <span style={{ ...styles.toolName, top: rank !== undefined ? '28px' : '8px' }}>
+            {product.tool_name}
+          </span>
+        )}
+
+        {/* プロンプトラベル（右下） */}
+        {product.is_prompt_public === true && (
           <span style={styles.promptPublic}>プロンプト</span>
         )}
       </div>
@@ -77,12 +96,52 @@ const styles: Record<string, React.CSSProperties> = {
     aspectRatio: "1 / 1",
     overflow: "hidden",
     backgroundColor: "#f0f0f0",
-    position: 'relative', 
+    position: "relative",
   },
   image: {
     width: "100%",
     height: "100%",
     objectFit: "cover",
+  },
+  topGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "64px",
+    background: "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 100%)",
+    pointerEvents: "none",
+  },
+  rankBadge: {
+    position: "absolute",
+    top: "8px",
+    left: "8px",
+    fontSize: "13px",
+    fontWeight: "bold",
+    color: "#fff",
+    textShadow: "0 1px 3px rgba(0,0,0,0.5)",
+  },
+  toolName: {
+    position: "absolute",
+    left: "8px",
+    right: "8px",
+    fontSize: "11px",
+    color: "#fff",
+    fontWeight: "bold",
+    textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  promptPublic: {
+    position: "absolute",
+    bottom: "8px",
+    right: "8px",
+    fontSize: "11px",
+    color: "rgba(255,255,255,0.85)",
+    border: "1px solid rgba(255,255,255,0.6)",
+    padding: "1px 5px",
+    borderRadius: "3px",
   },
   body: {
     padding: "8px 12px 12px",
@@ -141,16 +200,6 @@ const styles: Record<string, React.CSSProperties> = {
     top: "8px",
     right: "8px",
     backgroundColor: "#e53e3e",
-    color: "#fff",
-    fontSize: "11px",
-    padding: "2px 6px",
-    borderRadius: "4px",
-  },
-  promptPublic: {
-    position: "absolute",
-    top: "8px",
-    left: "8px",
-    backgroundColor: "#4a90e2",
     color: "#fff",
     fontSize: "11px",
     padding: "2px 6px",

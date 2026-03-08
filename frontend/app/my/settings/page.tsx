@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import ReactCrop, { type Crop, type PixelCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import { useAuth } from "@/context/AuthContext";
-import { profileApi, storageUrl } from "@/lib/api";
+import { profileApi, userApi, storageUrl } from "@/lib/api";
+import type { UserProfile } from "@/types/index";
+import UserSidebar from "@/components/UserSidebar";
 
 type FieldErrors = Record<string, string[]>;
 
-// ── Canvas からトリミング済み Blob を生成 ──────────────
 function cropImageToBlob(
   image: HTMLImageElement,
   crop: PixelCrop,
@@ -20,27 +21,18 @@ function cropImageToBlob(
   canvas.width = outputWidth;
   canvas.height = outputHeight;
   const ctx = canvas.getContext("2d")!;
-
   const scaleX = image.naturalWidth / image.width;
   const scaleY = image.naturalHeight / image.height;
-
   ctx.drawImage(
     image,
-    crop.x * scaleX,
-    crop.y * scaleY,
-    crop.width * scaleX,
-    crop.height * scaleY,
-    0,
-    0,
-    outputWidth,
-    outputHeight,
+    crop.x * scaleX, crop.y * scaleY,
+    crop.width * scaleX, crop.height * scaleY,
+    0, 0, outputWidth, outputHeight,
   );
-
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => blob ? resolve(blob) : reject(new Error("Canvas toBlob failed")),
-      "image/webp",
-      0.9,
+      "image/webp", 0.9,
     );
   });
 }
@@ -48,6 +40,8 @@ function cropImageToBlob(
 export default function SettingsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   // プロフィール
   const [name, setName] = useState("");
@@ -91,9 +85,10 @@ export default function SettingsPage() {
     setBio(user.bio ?? "");
     if (user.avatar_path) setAvatarPreview(storageUrl(user.avatar_path));
     if (user.cover_path) setCoverPreview(storageUrl(user.cover_path));
+    userApi.show(user.ulid).then(setProfile);
   }, [user, authLoading]);
 
-  // ── アバター ────────────────────────────────────
+  // ── アバター ──────────────────────────────────────────
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     if (!file) return;
@@ -117,7 +112,9 @@ export default function SettingsPage() {
       const formData = new FormData();
       formData.append("avatar", blob, "avatar.webp");
       await profileApi.updateAvatar(formData);
-      setAvatarPreview(URL.createObjectURL(blob));
+      const previewUrl = URL.createObjectURL(blob);
+      setAvatarPreview(previewUrl);
+      setProfile((p) => p ? { ...p, avatar_path: previewUrl } : p);
       setAvatarCropSrc(null);
       setAvatarMsg({ type: "ok", text: "アイコンを更新しました。" });
     } catch (err: unknown) {
@@ -129,7 +126,7 @@ export default function SettingsPage() {
     }
   };
 
-  // ── カバー ──────────────────────────────────────
+  // ── カバー ────────────────────────────────────────────
   const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     if (!file) return;
@@ -153,7 +150,9 @@ export default function SettingsPage() {
       const formData = new FormData();
       formData.append("cover", blob, "cover.webp");
       await profileApi.updateCover(formData);
-      setCoverPreview(URL.createObjectURL(blob));
+      const previewUrl = URL.createObjectURL(blob);
+      setCoverPreview(previewUrl);
+      setProfile((p) => p ? { ...p, cover_path: previewUrl } : p);
       setCoverCropSrc(null);
       setCoverMsg({ type: "ok", text: "カバー画像を更新しました。" });
     } catch (err: unknown) {
@@ -165,7 +164,7 @@ export default function SettingsPage() {
     }
   };
 
-  // ── プロフィール ────────────────────────────────
+  // ── プロフィール ──────────────────────────────────────
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileMsg(null);
@@ -173,6 +172,7 @@ export default function SettingsPage() {
     setProfileLoading(true);
     try {
       await profileApi.update({ name, bio: bio || undefined });
+      setProfile((p) => p ? { ...p, name, bio } : p);
       setProfileMsg({ type: "ok", text: "プロフィールを更新しました。" });
     } catch (err: unknown) {
       const e = err as { message?: string; errors?: FieldErrors };
@@ -183,7 +183,7 @@ export default function SettingsPage() {
     }
   };
 
-  // ── パスワード ──────────────────────────────────
+  // ── パスワード ────────────────────────────────────────
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== newPasswordConfirm) {
@@ -212,131 +212,115 @@ export default function SettingsPage() {
     }
   };
 
-  if (authLoading) return <div style={styles.container}><p>読み込み中...</p></div>;
+  if (authLoading || !profile) return <div style={styles.container}><p>読み込み中...</p></div>;
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.heading}>プロフィール設定</h1>
+      <div style={styles.layout}>
+        <UserSidebar profile={profile} isMe={true} />
 
-      {/* アイコン */}
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>アイコン</h2>
-        {avatarMsg && <p style={avatarMsg.type === "ok" ? styles.ok : styles.err}>{avatarMsg.text}</p>}
-        <div style={styles.avatarWrapper}>
-          <img
-            src={avatarPreview ?? "https://placehold.co/100x100?text=No+Image"}
-            alt="アバター"
-            style={styles.avatar}
-          />
-        </div>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={handleAvatarFileChange}
-          style={styles.fileInput}
-        />
-        {avatarFieldErrors.avatar && <p style={styles.fieldError}>{avatarFieldErrors.avatar[0]}</p>}
-      </section>
+        <main style={styles.main}>
+          <h2 style={styles.pageTitle}>プロフィール設定</h2>
 
-      <hr style={styles.hr} />
+          {/* アイコン */}
+          <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>アイコン</h3>
+            {avatarMsg && <p style={avatarMsg.type === "ok" ? styles.ok : styles.err}>{avatarMsg.text}</p>}
+            <div style={styles.avatarWrapper}>
+              <img
+                src={avatarPreview ?? "https://placehold.co/100x100?text=No+Image"}
+                alt="アバター"
+                style={styles.avatar}
+              />
+            </div>
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarFileChange} style={styles.fileInput} />
+            {avatarFieldErrors.avatar && <p style={styles.fieldError}>{avatarFieldErrors.avatar[0]}</p>}
+          </section>
 
-      {/* カバー画像 */}
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>カバー画像</h2>
-        {coverMsg && <p style={coverMsg.type === "ok" ? styles.ok : styles.err}>{coverMsg.text}</p>}
-        <div style={styles.coverWrapper}>
-          {coverPreview ? (
-            <img src={coverPreview} alt="カバー" style={styles.coverPreview} />
-          ) : (
-            <div style={styles.coverPlaceholder}>カバー画像未設定</div>
-          )}
-        </div>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={handleCoverFileChange}
-          style={styles.fileInput}
-        />
-        {coverFieldErrors.cover && <p style={styles.fieldError}>{coverFieldErrors.cover[0]}</p>}
-      </section>
+          <hr style={styles.hr} />
 
-      <hr style={styles.hr} />
+          {/* カバー画像 */}
+          <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>カバー画像</h3>
+            {coverMsg && <p style={coverMsg.type === "ok" ? styles.ok : styles.err}>{coverMsg.text}</p>}
+            <div style={styles.coverWrapper}>
+              {coverPreview ? (
+                <img src={coverPreview} alt="カバー" style={styles.coverPreview} />
+              ) : (
+                <div style={styles.coverPlaceholder}>カバー画像未設定</div>
+              )}
+            </div>
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleCoverFileChange} style={styles.fileInput} />
+            {coverFieldErrors.cover && <p style={styles.fieldError}>{coverFieldErrors.cover[0]}</p>}
+          </section>
 
-      {/* プロフィール */}
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>ニックネーム・自己紹介</h2>
-        {profileMsg && <p style={profileMsg.type === "ok" ? styles.ok : styles.err}>{profileMsg.text}</p>}
-        <form onSubmit={handleProfileSubmit} style={styles.form}>
-          <label style={styles.label}>ニックネーム *</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            maxLength={50}
-            style={{ ...styles.input, ...(profileFieldErrors.name ? styles.inputError : {}) }}
-          />
-          {profileFieldErrors.name && <p style={styles.fieldError}>{profileFieldErrors.name[0]}</p>}
+          <hr style={styles.hr} />
 
-          <label style={styles.label}>自己紹介</label>
-          <textarea
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            rows={4}
-            maxLength={500}
-            style={{ ...styles.input, resize: "vertical", ...(profileFieldErrors.bio ? styles.inputError : {}) }}
-          />
-          {profileFieldErrors.bio && <p style={styles.fieldError}>{profileFieldErrors.bio[0]}</p>}
+          {/* プロフィール */}
+          <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>ニックネーム・自己紹介</h3>
+            {profileMsg && <p style={profileMsg.type === "ok" ? styles.ok : styles.err}>{profileMsg.text}</p>}
+            <form onSubmit={handleProfileSubmit} style={styles.form}>
+              <label style={styles.label}>ニックネーム *</label>
+              <input
+                type="text" value={name} onChange={(e) => setName(e.target.value)}
+                required maxLength={50}
+                style={{ ...styles.input, ...(profileFieldErrors.name ? styles.inputError : {}) }}
+              />
+              {profileFieldErrors.name && <p style={styles.fieldError}>{profileFieldErrors.name[0]}</p>}
 
-          <button type="submit" disabled={profileLoading} style={styles.button}>
-            {profileLoading ? "処理中..." : "変更を保存"}
-          </button>
-        </form>
-      </section>
+              <label style={styles.label}>自己紹介</label>
+              <textarea
+                value={bio} onChange={(e) => setBio(e.target.value)}
+                rows={4} maxLength={500}
+                style={{ ...styles.input, resize: "vertical", ...(profileFieldErrors.bio ? styles.inputError : {}) }}
+              />
+              {profileFieldErrors.bio && <p style={styles.fieldError}>{profileFieldErrors.bio[0]}</p>}
 
-      <hr style={styles.hr} />
+              <button type="submit" disabled={profileLoading} style={styles.button}>
+                {profileLoading ? "処理中..." : "変更を保存"}
+              </button>
+            </form>
+          </section>
 
-      {/* パスワード */}
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>パスワード変更</h2>
-        {passwordMsg && <p style={passwordMsg.type === "ok" ? styles.ok : styles.err}>{passwordMsg.text}</p>}
-        <form onSubmit={handlePasswordSubmit} style={styles.form}>
-          <label style={styles.label}>現在のパスワード</label>
-          <input
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            required
-            style={{ ...styles.input, ...(passwordFieldErrors.current_password ? styles.inputError : {}) }}
-          />
-          {passwordFieldErrors.current_password && <p style={styles.fieldError}>{passwordFieldErrors.current_password[0]}</p>}
+          <hr style={styles.hr} />
 
-          <label style={styles.label}>新しいパスワード（8文字以上）</label>
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-            minLength={8}
-            style={{ ...styles.input, ...(passwordFieldErrors.password ? styles.inputError : {}) }}
-          />
-          {passwordFieldErrors.password && <p style={styles.fieldError}>{passwordFieldErrors.password[0]}</p>}
+          {/* パスワード */}
+          <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>パスワード変更</h3>
+            {passwordMsg && <p style={passwordMsg.type === "ok" ? styles.ok : styles.err}>{passwordMsg.text}</p>}
+            <form onSubmit={handlePasswordSubmit} style={styles.form}>
+              <label style={styles.label}>現在のパスワード</label>
+              <input
+                type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                style={{ ...styles.input, ...(passwordFieldErrors.current_password ? styles.inputError : {}) }}
+              />
+              {passwordFieldErrors.current_password && <p style={styles.fieldError}>{passwordFieldErrors.current_password[0]}</p>}
 
-          <label style={styles.label}>新しいパスワード（確認）</label>
-          <input
-            type="password"
-            value={newPasswordConfirm}
-            onChange={(e) => setNewPasswordConfirm(e.target.value)}
-            required
-            style={{ ...styles.input, ...(passwordFieldErrors.password_confirmation ? styles.inputError : {}) }}
-          />
-          {passwordFieldErrors.password_confirmation && <p style={styles.fieldError}>{passwordFieldErrors.password_confirmation[0]}</p>}
+              <label style={styles.label}>新しいパスワード（8文字以上）</label>
+              <input
+                type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                required minLength={8}
+                style={{ ...styles.input, ...(passwordFieldErrors.password ? styles.inputError : {}) }}
+              />
+              {passwordFieldErrors.password && <p style={styles.fieldError}>{passwordFieldErrors.password[0]}</p>}
 
-          <button type="submit" disabled={passwordLoading} style={styles.button}>
-            {passwordLoading ? "処理中..." : "パスワードを変更"}
-          </button>
-        </form>
-      </section>
+              <label style={styles.label}>新しいパスワード（確認）</label>
+              <input
+                type="password" value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                required
+                style={{ ...styles.input, ...(passwordFieldErrors.password_confirmation ? styles.inputError : {}) }}
+              />
+              {passwordFieldErrors.password_confirmation && <p style={styles.fieldError}>{passwordFieldErrors.password_confirmation[0]}</p>}
+
+              <button type="submit" disabled={passwordLoading} style={styles.button}>
+                {passwordLoading ? "処理中..." : "パスワードを変更"}
+              </button>
+            </form>
+          </section>
+        </main>
+      </div>
 
       {/* アバタートリミングモーダル */}
       {avatarCropSrc && (
@@ -367,15 +351,7 @@ export default function SettingsPage() {
               />
             </ReactCrop>
             <div style={styles.modalButtons}>
-              <button 
-  onClick={() => {
-    handleCoverSave()
-  }} 
-  disabled={coverLoading} 
-  style={styles.button}
->
-                キャンセル
-              </button>
+              <button onClick={() => setAvatarCropSrc(null)} style={styles.cancelButton}>キャンセル</button>
               <button onClick={handleAvatarSave} disabled={avatarLoading} style={styles.button}>
                 {avatarLoading ? "処理中..." : "この範囲で保存"}
               </button>
@@ -413,9 +389,7 @@ export default function SettingsPage() {
               />
             </ReactCrop>
             <div style={styles.modalButtons}>
-              <button onClick={() => setCoverCropSrc(null)} style={styles.cancelButton}>
-                キャンセル
-              </button>
+              <button onClick={() => setCoverCropSrc(null)} style={styles.cancelButton}>キャンセル</button>
               <button onClick={handleCoverSave} disabled={coverLoading} style={styles.button}>
                 {coverLoading ? "処理中..." : "この範囲で保存"}
               </button>
@@ -428,10 +402,12 @@ export default function SettingsPage() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: { maxWidth: "600px", margin: "0 auto", padding: "24px 16px" },
-  heading: { marginBottom: "24px" },
+  container: { maxWidth: "1100px", margin: "0 auto", padding: "24px 16px" },
+  layout: { display: "flex", gap: "32px", alignItems: "flex-start" },
+  main: { flex: 1, minWidth: 0 },
+  pageTitle: { fontSize: "18px", fontWeight: "bold", margin: "0 0 24px", paddingBottom: "8px", borderBottom: "1px solid #eee" },
   section: { paddingBottom: "8px" },
-  sectionTitle: { fontSize: "16px", fontWeight: "bold", marginBottom: "16px" },
+  sectionTitle: { fontSize: "15px", fontWeight: "bold", marginBottom: "16px" },
   form: { display: "flex", flexDirection: "column", gap: "4px" },
   label: { fontWeight: "bold", fontSize: "14px", marginTop: "8px" },
   input: { padding: "8px", border: "1px solid #ccc", borderRadius: "4px", fontSize: "14px" },

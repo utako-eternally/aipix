@@ -22,7 +22,7 @@ Route::get('/products/{ulid}', [ProductController::class, 'show']);
 
 // ランキング
 Route::get('/rankings', [RankingController::class, 'index']);
-Route::get('/rankings/users', [RankingController::class, 'popularUsers']);
+Route::get('/rankings/users', [RankingController::class, 'users']);
 
 // ユーザーページ
 Route::get('/users/{ulid}',          [UserController::class, 'show']);

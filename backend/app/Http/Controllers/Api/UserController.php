@@ -31,6 +31,7 @@ class UserController extends Controller
             'name'             => $user->name,
             'bio'              => $user->bio,
             'avatar_path'      => $user->avatar_path,
+            'cover_path'       => $user->cover_path,
             'followers_count'  => $user->followers()->count(),
             'following_count'  => $user->following()->count(),
             'products_count'   => Product::where('user_id', $user->id)->where('status', 'approved')->count(),
@@ -51,7 +52,7 @@ class UserController extends Controller
             ->select([
                 'id', 'ulid', 'user_id', 'title', 'content_type',
                 'age_rating', 'tags', 'watermark_path', 'price',
-                'view_count', 'like_count', 'purchase_count', 'created_at',
+                'view_count', 'like_count', 'purchase_count', 'tool_name', 'created_at',
             ])
             ->with('user:id,ulid,name,avatar_path')
             ->orderByDesc('created_at')
@@ -83,5 +84,4 @@ class UserController extends Controller
 
         return response()->json($users);
     }
-
 }

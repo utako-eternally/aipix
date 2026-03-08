@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { productApi, orderApi, likeApi, userApi, storageUrl } from "@/lib/api";
 import ReviewSection from "@/components/ReviewSection";
 import { useAuth } from "@/context/AuthContext";
-import type { Product, Order } from "@/types";
+import type { Product, Order, Paginated } from "@/types";
 
 type UserProfile = {
   id: number
@@ -17,6 +18,12 @@ type UserProfile = {
   following_count: number
   products_count: number
   is_following: boolean
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  if (bytes >= 1024) return (bytes / 1024).toFixed(0) + ' KB'
+  return bytes + ' B'
 }
 
 export default function ProductDetailPage() {
@@ -33,6 +40,7 @@ export default function ProductDetailPage() {
 
   const [author, setAuthor] = useState<UserProfile | null>(null);
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [authorProducts, setAuthorProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     productApi
@@ -42,7 +50,14 @@ export default function ProductDetailPage() {
         setLikeCount(p.like_count);
         return userApi.show(p.user.ulid);
       })
-      .then(setAuthor)
+      .then((a) => {
+        setAuthor(a);
+        return userApi.products(a.ulid, 1);
+      })
+      .then((res: Paginated<Product>) => {
+        // 自分自身の作品を除いて最大6件
+        setAuthorProducts(res.data.filter((p) => p.ulid !== ulid).slice(0, 6));
+      })
       .finally(() => setLoading(false));
   }, [ulid, user]);
 
@@ -120,6 +135,18 @@ export default function ProductDetailPage() {
           {product.has_purchased && (
             <p style={styles.purchased}>✓ 購入済み（原寸画像）</p>
           )}
+
+          {/* 画像情報 */}
+          {(product.width || product.file_size) && (
+            <div style={styles.imageInfo}>
+              {product.width && product.height && (
+                <span style={styles.imageInfoItem}>📐 {product.width} × {product.height}px</span>
+              )}
+              {product.file_size && (
+                <span style={styles.imageInfoItem}>💾 {formatFileSize(product.file_size)}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 右: 情報 */}
@@ -141,7 +168,7 @@ export default function ProductDetailPage() {
           {product.tags && product.tags.length > 0 && (
             <div style={styles.tags}>
               {product.tags.map((tag) => (
-                <span key={tag} style={styles.tag}>{tag}</span>
+                <Link key={tag} href={`/search?q=${encodeURIComponent(tag)}`} style={styles.tag}>{tag}</Link>
               ))}
             </div>
           )}
@@ -149,6 +176,9 @@ export default function ProductDetailPage() {
           <div style={styles.stats}>
             <span>👁 {product.view_count}</span>
             <span>🛒 {product.purchase_count}</span>
+            <span style={styles.postedAt}>
+              {new Date(product.created_at).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </span>
           </div>
 
           <p style={styles.price}>¥{product.price.toLocaleString()}</p>
@@ -240,6 +270,30 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
+      {/* 作者の他の作品 */}
+      {authorProducts.length > 0 && author && (
+        <div style={styles.otherSection}>
+          <div style={styles.otherHeader}>
+            <h2 style={styles.otherTitle}>{author.name} の他の作品</h2>
+            <Link href={`/users/${author.ulid}`} style={styles.otherMore}>すべて見る →</Link>
+          </div>
+          <div style={styles.otherScroll}>
+            {authorProducts.map((p) => (
+              <Link key={p.ulid} href={`/products/${p.ulid}`} style={styles.otherCard}>
+                <img
+                  src={storageUrl(p.watermark_path)}
+                  alt={p.title}
+                  style={styles.otherThumb}
+                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/160x160?text=No+Image' }}
+                />
+                <p style={styles.otherCardTitle}>{p.title}</p>
+                <p style={styles.otherCardPrice}>¥{p.price.toLocaleString()}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       <ReviewSection
         productUlid={product.ulid}
         hasPurchased={product.has_purchased ?? false}
@@ -254,13 +308,16 @@ const styles: Record<string, React.CSSProperties> = {
   imageWrapper: { position: "relative" },
   image: { width: "100%", aspectRatio: "1/1", objectFit: "cover", borderRadius: "8px", backgroundColor: "#f0f0f0" },
   purchased: { fontSize: "12px", color: "#38a169", marginTop: "8px" },
+  imageInfo: { display: "flex", gap: "12px", marginTop: "8px", flexWrap: "wrap" },
+  imageInfoItem: { fontSize: "12px", color: "#666" },
   info: { display: "flex", flexDirection: "column", gap: "12px" },
   title: { fontSize: "24px", fontWeight: "bold", margin: 0 },
   meta: { display: "flex", gap: "8px", flexWrap: "wrap" },
   badge: { fontSize: "12px", padding: "2px 8px", border: "1px solid #ccc", borderRadius: "4px", backgroundColor: "#f5f5f5" },
   tags: { display: "flex", flexWrap: "wrap", gap: "8px" },
-  tag: { fontSize: "12px", color: "#4a5568", backgroundColor: "#edf2f7", padding: "2px 8px", borderRadius: "4px" },
-  stats: { display: "flex", gap: "16px", fontSize: "14px", color: "#666" },
+  tag: { fontSize: "12px", color: "#4a5568", backgroundColor: "#edf2f7", padding: "2px 8px", borderRadius: "4px", textDecoration: "none" },
+  stats: { display: "flex", gap: "16px", fontSize: "14px", color: "#666", alignItems: "center", flexWrap: "wrap" },
+  postedAt: { fontSize: "12px", color: "#999" },
   price: { fontSize: "28px", fontWeight: "bold", margin: 0 },
   likeButton: { padding: "8px 20px", border: "1px solid #e53e3e", borderRadius: "4px", color: "#e53e3e", backgroundColor: "#fff", cursor: "pointer", fontSize: "14px" },
   buyButton: { padding: "12px 24px", backgroundColor: "#333", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "16px" },
@@ -279,4 +336,13 @@ const styles: Record<string, React.CSSProperties> = {
   authorStat: { display: "flex", flexDirection: "column", alignItems: "center" },
   authorStatNum: { fontWeight: "bold", fontSize: "16px" },
   authorStatLabel: { fontSize: "11px", color: "#666" },
+  otherSection: { marginTop: "48px", marginBottom: "32px" },
+  otherHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" },
+  otherTitle: { fontSize: "18px", fontWeight: "bold", margin: 0 },
+  otherMore: { fontSize: "14px", color: "#666", textDecoration: "none" },
+  otherScroll: { display: "flex", gap: "12px", overflowX: "auto", paddingBottom: "8px" },
+  otherCard: { flexShrink: 0, width: "160px", textDecoration: "none", color: "inherit", border: "1px solid #eee", borderRadius: "8px", overflow: "hidden", backgroundColor: "#fff" },
+  otherThumb: { width: "160px", height: "160px", objectFit: "cover", display: "block", backgroundColor: "#f0f0f0" },
+  otherCardTitle: { fontSize: "12px", fontWeight: "bold", margin: "6px 8px 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  otherCardPrice: { fontSize: "12px", color: "#666", margin: "0 8px 8px" },
 };
